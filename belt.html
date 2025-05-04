@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Conveyor Belt Design Calculator</title>
+  <link href="https://fonts.googleapis.com/css2?family=Roboto&display=swap" rel="stylesheet">
+  <style>
+    body {
+      font-family: 'Roboto', sans-serif;
+      background-color: #f5f5f5;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container {
+      max-width: 700px;
+      margin: 50px auto;
+      background-color: #ffffff;
+      padding: 30px;
+      border-radius: 8px;
+      box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
+    }
+
+    h1, h2 {
+      text-align: center;
+      color: #333333;
+    }
+
+    form {
+      display: flex;
+      flex-direction: column;
+    }
+
+    label {
+      margin-top: 15px;
+      margin-bottom: 5px;
+      color: #555555;
+    }
+
+    input[type="number"], select {
+      padding: 10px;
+      border: 1px solid #cccccc;
+      border-radius: 4px;
+      font-size: 16px;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 12px;
+      background-color: #1E88E5;
+      color: #ffffff;
+      border: none;
+      border-radius: 4px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: background-color 0.3s ease;
+    }
+
+    button:hover {
+      background-color: #1565C0;
+    }
+
+    .results {
+      margin-top: 30px;
+      padding: 20px;
+      background-color: #e3f2fd;
+      border-radius: 8px;
+    }
+
+    .result-item {
+      margin-bottom: 10px;
+      font-size: 16px;
+      color: #333333;
+    }
+
+    .hidden {
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>Conveyor Belt Design Calculator</h1>
+    <form id="designForm">
+      <label for="beltWidth">Belt Width (inches):</label>
+      <input type="number" id="beltWidth" min="12" max="72" required />
+
+      <label for="materialType">Material Type:</label>
+      <select id="materialType" required>
+        <option value="">Select Material</option>
+        <option value="Grain">Grain</option>
+        <option value="Coal">Coal</option>
+        <option value="Ore">Ore</option>
+      </select>
+
+      <label for="productionRate">Production Rate (tons/hour):</label>
+      <input type="number" id="productionRate" min="0" required />
+
+      <button type="submit">Calculate</button>
+    </form>
+
+    <div id="results-container" class="results hidden">
+      <h2>Results</h2>
+      <div class="result-item"><strong>Recommended Lump Size:</strong> <span id="recommendedLumpSize"></span> in</div>
+      <div class="result-item"><strong>Predicted Belt Speed:</strong> <span id="predictedBeltSpeed"></span> ft/min</div>
+      <div class="result-item"><strong>Empty Friction Force:</strong> <span id="emptyFrictionForce"></span> lbs</div>
+      <div class="result-item"><strong>Loaded Friction Force:</strong> <span id="loadedFrictionForce"></span> lbs</div>
+      <div class="result-item"><strong>Effective Tension (Te):</strong> <span id="effectiveTension"></span> lbs</div>
+      <div class="result-item"><strong>Slack-Side Tension:</strong> <span id="slackSideTension"></span> lbs</div>
+      <div class="result-item"><strong>Tight-Side Tension (T1):</strong> <span id="tightSideTension"></span> lbs</div>
+      <div class="result-item"><strong>Tight-Side Tension Excl. BH:</strong> <span id="tightTensionExcludingBH"></span> lbs</div>
+      <div class="result-item"><strong>Take-Up Force Required:</strong> <span id="takeUpForceRequired"></span> lbs</div>
+      <div class="result-item"><strong>Maximum Applied Tension:</strong> <span id="maximumAppliedTension"></span> lbs</div>
+      <div class="result-item"><strong>Horsepower:</strong> <span id="horsepower"></span> HP</div>
+      <div class="result-item"><strong>Recommended Motor Size:</strong> <span id="recommendedMotorSize"></span> HP</div>
+    </div>
+  </div>
+
+  <script>
+    document.getElementById('designForm').addEventListener('submit', function(e) {
+      e.preventDefault();
+
+      const beltWidth = parseFloat(document.getElementById('beltWidth').value);
+      const materialType = document.getElementById('materialType').value;
+      const productionRate = parseFloat(document.getElementById('productionRate').value);
+
+      const beltSpeedData = {
+        Grain: {12: 400, 24: 600, 36: 800, 48: 900, 60: 1000, 72: 1100},
+        Coal:  {12: 300, 24: 500, 36: 650, 48: 700, 60: 700, 72: 800},
+        Ore:   {12: 300, 24: 450, 36: 600, 48: 650, 60: 650, 72: 750}
+      };
+
+      const lumpSizeData = {
+        12: 2, 18: 4, 24: 5, 30: 6, 36: 7,
+        42: 8, 48: 10, 54: 11, 60: 12, 66: 13, 72: 14
+      };
+
+      function interpolate(data, width) {
+        const widths = Object.keys(data).map(Number).sort((a, b) => a - b);
+        for (let i = 0; i < widths.length - 1; i++) {
+          if (width >= widths[i] && width <= widths[i + 1]) {
+            const w1 = widths[i], w2 = widths[i + 1];
+            const v1 = data[w1], v2 = data[w2];
+            return v1 + ((v2 - v1) * (width - w1)) / (w2 - w1);
+          }
+        }
+        return data[widths[widths.length - 1]];
+      }
+
+      const predictedBeltSpeed = interpolate(beltSpeedData[materialType], beltWidth).toFixed(2);
+      const recommendedLumpSize = interpolate(lumpSizeData, beltWidth).toFixed(2);
+
+      // Sample calculation parameters
+      const conveyorLength = 1000;
+      const frictionEquivalentLength = 50;
+      const idlerFrictionFactor = 0.02;
+      const beltWeightPerFoot = 5;
+      const motorEfficiency = 0.9;
+      const elevationChange = 50;
+      const tightSideTension = 15000;
+      const driveFactor = 0.35;
+
+      const emptyFriction = (0.018 * (2 * conveyorLength + frictionEquivalentLength) * beltWeightPerFoot).toFixed(2);
+      const loadedFriction = (idlerFrictionFactor * (conveyorLength + frictionEquivalentLength) * 100 * productionRate / (3 * predictedBeltSpeed)).toFixed(2);
+      const effectiveTension = (tightSideTension - (beltWeightPerFoot * elevationChange)).toFixed(2);
+      const slackSideTension = (effectiveTension * driveFactor).toFixed(2);
+      const tightTensionExclBH = effectiveTension;
+      const takeUpForce = slackSideTension > (beltWeightPerFoot * elevationChange)
+        ? (2 * (slackSideTension - (beltWeightPerFoot * elevationChange))).toFixed(2) : 0;
+      const maxAppliedTension = (parseFloat(tightSideTension) + 0.5 * takeUpForce).toFixed(2);
+      const hp = ((predictedBeltSpeed * effectiveTension) / (33000 * motorEfficiency)).toFixed(2);
+      const motorSize = Math.ceil(hp / 50) * 50;
+
+      // Output results
+      document.getElementById('recommendedLumpSize').textContent = recommendedLumpSize;
+      document.getElementById('predictedBeltSpeed').textContent = predictedBeltSpeed;
+      document.getElementById('emptyFrictionForce').textContent = emptyFriction;
+      document.getElementById('loadedFrictionForce').textContent = loadedFriction;
+      document.getElementById('effectiveTension').textContent = effectiveTension;
+      document.getElementById('slackSideTension').textContent = slackSideTension;
+      document.getElementById('tightSideTension').textContent = tightSideTension;
+      document.getElementById('tightTensionExcludingBH').textContent = tightTensionExclBH;
+      document.getElementById('takeUpForceRequired').textContent = takeUpForce;
+      document.getElementById('maximumAppliedTension').textContent = maxAppliedTension;
+      document.getElementById('horsepower').textContent = hp;
+      document.getElementById('recommendedMotorSize').textContent = motorSize;
+
+      document.getElementById('results-container').classList.remove('hidden');
+    });
+  </script>
+</body>
+</html>
