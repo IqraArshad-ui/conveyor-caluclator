@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Conveyor Belt Design Calculator</title>
+    <style>
+        body {
+            font-family: sans-serif;
+            margin: 20px;
+        }
+        .container {
+            width: 400px;
+            margin: 0 auto;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+        }
+        input[type="number"], select {
+            width: 100%;
+            padding: 8px;
+            margin-bottom: 10px;
+            box-sizing: border-box;
+        }
+        button {
+            padding: 10px 15px;
+            background-color: #007bff;
+            color: white;
+            border: none;
+            cursor: pointer;
+        }
+        #results-container {
+            margin-top: 20px;
+            border: 1px solid #ccc;
+            padding: 15px;
+        }
+        .result-item {
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Conveyor Belt Design Calculator</h1>
+
+        <label for="beltWidth">Belt Width (inches):</label>
+        <input type="number" id="beltWidth" min="12" max="72">
+
+        <label for="materialType">Material Type:</label>
+        <select id="materialType">
+            <option value="Grain">Grain</option>
+            <option value="Coal">Coal</option>
+            <option value="Ore">Ore</option>
+        </select>
+
+        <label for="productionRate">Desired Production Rate (tons/hour):</label>
+        <input type="number" id="productionRate" min="0">
+
+        <button onclick="calculateDesign()">Calculate Design</button>
+
+        <div id="results-container" style="display: none;">
+            <h2>Design Results</h2>
+            <div class="result-item">Recommended Lump Size: <span id="recommendedLumpSize"></span> inches</div>
+            <div class="result-item">Predicted Belt Speed: <span id="predictedBeltSpeed"></span> ft/min</div>
+            <div class="result-item">Empty Friction Force: <span id="emptyFrictionForce"></span> lbs</div>
+            <div class="result-item">Loaded Friction Force: <span id="loadedFrictionForce"></span> lbs</div>
+            <div class="result-item">Effective Tension (Te): <span id="effectiveTension"></span> lbs</div>
+            <div class="result-item">Minimum Slack-Side Tension: <span id="slackSideTension"></span> lbs</div>
+            <div class="result-item">Tight-Side Tension (T1): <span id="tightSideTension"></span> lbs</div>
+            <div class="result-item">Tight-Side Tension Excluding BH (T0): <span id="tightTensionExcludingBH"></span> lbs</div>
+            <div class="result-item">Take-Up Force Required: <span id="takeUpForceRequired"></span> lbs</div>
+            <div class="result-item">Maximum Applied Tension (Tmax): <span id="maximumAppliedTension"></span> lbs</div>
+            <div class="result-item">Horsepower: <span id="horsepower"></span> HP</div>
+            <div class="result-item">Recommended Motor Size: <span id="recommendedMotorSize"></span> HP</div>
+            <div class="result-item">Carrying Idler Spacing: <span id="carryingIdlerSpacing"></span> ft</div>
+            <div class="result-item">Number of Carrying Idlers: <span id="numberOfCarryingIdlers"></span></div>
+            <div class="result-item">Return Idler Spacing: <span id="returnIdlerSpacing"></span> ft</div>
+            <div class="result-item">Number of Return Idlers: <span id="numberOfReturnIdlers"></span></div>
+        </div>
+    </div>
+
+    <script>
+        // Table 8.4 - Typical maximum belt speeds in feet per minute
+        const beltSpeedData = [
+            { width: 14, Grain: 400, Coal: 300, Ore: 300 },
+            { width: 16, Grain: 500, Coal: 300, Ore: 300 },
+            { width: 18, Grain: 500, Coal: 400, Ore: 350 },
+            { width: 20, Grain: 600, Coal: 400, Ore: 350 },
+            { width: 24, Grain: 600, Coal: 500, Ore: 450 },
+            { width: 30, Grain: 700, Coal: 600, Ore: 550 },
+            { width: 36, Grain: 800, Coal: 650, Ore: 600 },
+            { width: 42, Grain: 800, Coal: 700, Ore: 600 },
+            { width: 48, Grain: 900, Coal: 700, Ore: 650 },
+            { width: 54, Grain: 1000, Coal: 700, Ore: 650 },
+            { width: 60, Grain: 1000, Coal: 700, Ore: 650 },
+            { width: 66, Grain: null, Coal: 800, Ore: 750 },
+            { width: 72, Grain: null, Coal: 800, Ore: 750 }
+        ];
+
+        function predictBeltSpeed(beltWidth, materialType) {
+            const data = beltSpeedData.filter(item => item.width === parseFloat(beltWidth))[0];
+            if (data && data[materialType] !== null) {
+                return data[materialType];
+            } else {
+                // Basic linear interpolation (can be improved)
+                const lower = beltSpeedData.filter(item => item.width <= parseFloat(beltWidth)).pop();
+                const upper = beltSpeedData.filter(item => item.width >= parseFloat(beltWidth)).shift();
+
+                if (lower && upper && lower.width !== upper.width && lower[materialType] !== null && upper[materialType] !== null) {
+                    return lower[materialType] + (parseFloat(beltWidth) - lower.width) * (upper[materialType] - lower[materialType]) / (upper.width - lower.width);
+                } else if (data && data[materialType] === null) {
+                    return "Data not available for this material at this width.";
+                } else {
+                    return "Cannot predict belt speed for this width and material.";
+                }
+            }
+        }
+
+        // Table for Maximum recommended lump size
+        const lumpSizeData = [
+            { width: 12, uniform: 2, mixedFines: 4 },
+            { width: 18, uniform: 4, mixedFines: 6 },
+            { width: 24, uniform: 5, mixedFines: 8 },
+            { width: 30, uniform: 6, mixedFines: 10 },
+            { width: 36, uniform: 7, mixedFines: 12 },
+            { width: 42, uniform: 8, mixedFines: 14 },
+            { width: 48, uniform: 10, mixedFines: 16 },
+            { width: 54, uniform: 11, mixedFines: 20 },
+            { width: 60, uniform: 12, mixedFines: 24 }
+        ];
+
+        function predictLumpSize(beltWidth) {
+            const data = lumpSizeData.filter(item => item.width === parseFloat(beltWidth))[0];
+            if (data) {
+                return data.mixedFines; // Assuming "Mixed with 90% Fines"
+            } else {
+                // Basic linear interpolation (can be improved)
+                const lower = lumpSizeData.filter(item => item.width <= parseFloat(beltWidth)).pop();
+                const upper = lumpSizeData.filter(item => item.width >= parseFloat(beltWidth)).shift();
+
+                if (lower && upper && lower.width !== upper.width) {
+                    return lower.mixedFines + (parseFloat(beltWidth) - lower.width) * (upper.mixedFines - lower.mixedFines) / (upper.width - lower.width);
+                } else {
+                    return "Cannot predict lump size for this width.";
+                }
+            }
+        }
+
+        function calculateDesign() {
+            const beltWidth = document.getElementById("beltWidth").value;
+            const materialType = document.getElementById("materialType").value;
+            const productionRate = document.getElementById("productionRate").value;
+
+            const recommendedLumpSize = predictLumpSize(beltWidth);
+            const predictedBeltSpeed = predictBeltSpeed(beltWidth, materialType);
+
+            document.getElementById("recommendedLumpSize").textContent = recommendedLumpSize;
+            document.getElementById("predictedBeltSpeed").textContent = predictedBeltSpeed;
+
+            // --- Placeholder calculations (replace with your actual formulas) ---
+            const elevationChange = 50; // Example
+            const conveyorLength = 1000; // Example
+            const frictionEquivalentLength = 50; // Example
+            const idlerFrictionFactor = 0.02; // Example
+            const beltWeightPerFoot = 5; // Example
+            const motorEfficiency = 0.9; // Example
+            const tightSideTension = 15000; // Example
+            const driveFactor = 0.35; // Example
+            const materialDensity = 60; // Example
+
+            const emptyFriction = 0.018 * (2 * conveyorLength + frictionEquivalentLength) * beltWeightPerFoot;
+            const loadedFriction = idlerFrictionFactor * (conveyorLength + frictionEquivalentLength) * 100 * productionRate / (3 * predictedBeltSpeed);
+            const effectiveTensionVal = tightSideTension - (beltWeightPerFoot * elevationChange);
+            const slackTension = effectiveTensionVal * driveFactor;
+            const tightTensionExcludingBHVal = effectiveTensionVal;
+            const takeupForceRequiredVal = slackTension > (beltWeightPerFoot * elevationChange) ? 2 * (slackTension - (beltWeightPerFoot * elevationChange)) : 0;
+            const maximumAppliedTensionVal = tightSideTension + 0.5 * takeupForceRequiredVal;
+            const hp = (predictedBeltSpeed * effectiveTensionVal) / (33000 * motorEfficiency);
+            const recommendedMotorSizeVal = Math.round(hp / 50) * 50 || 0;
+            const idlerSpacingCarryingVal = beltWidth <= 24 ? (materialDensity <= 50 ? 4.5 : 4.0) : (beltWidth <= 48 ? (materialDensity <= 50 ? 4.0 : 3.5) : 3.5);
+            const numberOfCarryingIdlersVal = Math.round((conveyorLength + Math.sqrt(elevationChange*2 + conveyorLength*2)) / idlerSpacingCarryingVal) || 0;
+            const idlerSpacingReturnVal = beltWidth <= 30 ? 9.0 : 10.0;
+            const numberOfReturnIdlersVal = Math.round((conveyorLength + Math.sqrt(elevationChange*2 + conveyorLength*2)) / idlerSpacingReturnVal) || 0;
+
+
+            document.getElementById("emptyFrictionForce").textContent = emptyFriction.toFixed(2);
+            document.getElementById("loadedFrictionForce").textContent = loadedFriction.toFixed(2);
+            document.getElementById("effectiveTension").textContent = effectiveTensionVal.toFixed(2);
+            document.getElementById("slackSideTension").textContent = slackTension.toFixed(2);
+            document.getElementById("tightSideTension").textContent = tightSideTension.toFixed(2);
+            document.getElementById("tightTensionExcludingBH").textContent = tightTensionExcludingBHVal.toFixed(2);
+            document.getElementById("takeUpForceRequired").textContent = takeupForceRequiredVal.toFixed(2);
+            document.getElementById("maximumAppliedTension").textContent = maximumAppliedTensionVal.toFixed(2);
+            document.getElementById("horsepower").textContent = hp.toFixed(2);
+            document.getElementById("recommendedMotorSize").textContent = recommendedMotorSizeVal;
+            document.getElementById("carryingIdlerSpacing").textContent = idlerSpacingCarryingVal.toFixed(1);
+            document.getElementById("numberOfCarryingIdlers").textContent = numberOfCarryingIdlersVal;
+            document.getElementById("returnIdlerSpacing").textContent = idlerSpacingReturnVal.toFixed(1);
+            document.getElementById("numberOfReturnIdlers").textContent = numberOfReturnIdlersVal;
+
+            document.getElementById("results-container").style.display = "block";
+        }
+    </script>
+</body>
+</html>
